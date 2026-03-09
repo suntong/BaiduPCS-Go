@@ -3,6 +3,14 @@ package pcsdownload
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs"
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs/pcserror"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsconfig"
@@ -14,13 +22,6 @@ import (
 	"github.com/qjfoidnh/BaiduPCS-Go/requester"
 	"github.com/qjfoidnh/BaiduPCS-Go/requester/downloader"
 	"github.com/qjfoidnh/BaiduPCS-Go/requester/transfer"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type (
@@ -498,7 +499,7 @@ func (dtu *DownloadTaskUnit) Run() (result *taskframework.TaskUnitRunResult) {
 		return
 	}
 
-	GetProgressManager().Printf("[%s] 准备下载: %s\n", dtu.taskInfo.Id(), dtu.PcsPath)
+	// GetProgressManager().Printf("[%s] 准备下载: %s\n", dtu.taskInfo.Id(), dtu.PcsPath)
 
 	if !dtu.Cfg.IsTest && !dtu.IsOverwrite && FileExist(dtu.SavePath) {
 		GetProgressManager().Printf("[%s] 文件已经存在: %s, 跳过...\n", dtu.taskInfo.Id(), dtu.SavePath)
@@ -508,7 +509,7 @@ func (dtu *DownloadTaskUnit) Run() (result *taskframework.TaskUnitRunResult) {
 
 	if !dtu.Cfg.IsTest {
 		// 不是测试下载, 输出下载路径
-		GetProgressManager().Printf("[%s] 将会下载到路径: %s\n\n", dtu.taskInfo.Id(), dtu.SavePath)
+		// GetProgressManager().Printf("[%s] 将会下载到路径: %s\n\n", dtu.taskInfo.Id(), dtu.SavePath)
 	}
 
 	var ok bool

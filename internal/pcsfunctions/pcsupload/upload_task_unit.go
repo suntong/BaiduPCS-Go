@@ -6,6 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs"
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs/pcserror"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsconfig"
@@ -16,9 +20,6 @@ import (
 	"github.com/qjfoidnh/BaiduPCS-Go/pcsutil/taskframework"
 	"github.com/qjfoidnh/BaiduPCS-Go/requester/rio"
 	"github.com/qjfoidnh/BaiduPCS-Go/requester/uploader"
-	"path"
-	"strings"
-	"time"
 )
 
 type (
@@ -263,7 +264,7 @@ func (utu *UploadTaskUnit) rapidUpload() (isContinue bool, result *taskframework
 		return
 	}
 
-	pcsdownload.GetProgressManager().Printf("[%s] 开始上传文件...\n\n", utu.taskInfo.Id())
+	//pcsdownload.GetProgressManager().Printf("[%s] 开始上传文件...\n\n", utu.taskInfo.Id())
 
 	// 保存秒传信息
 	if utu.state.Uploadid == "" {
