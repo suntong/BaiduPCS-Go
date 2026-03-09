@@ -6,6 +6,7 @@ import (
 	"github.com/mattn/go-runewidth"
 	"golang.org/x/sys/unix"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
 	"sync"
@@ -27,15 +28,33 @@ var (
 	pmOnce                sync.Once
 )
 
-// GetProgressManager returns the singleton instance of ProgressManager.
+// GetProgressManager returns the singleton instance of ProgressManager and initializes signal handling.
 func GetProgressManager() *ProgressManager {
 	pmOnce.Do(func() {
 		globalProgressManager = &ProgressManager{
 			activeTasks: make(map[string]string),
 			isTerminal:  isatty.IsTerminal(os.Stdout.Fd()),
 		}
+		if globalProgressManager.isTerminal {
+			globalProgressManager.listenResize()
+		}
 	})
 	return globalProgressManager
+}
+
+// listenResize sets up a listener for terminal resize events to reset state and ensure clean redraws.
+func (pm *ProgressManager) listenResize() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, unix.SIGWINCH)
+	go func() {
+		for range sigChan {
+			pm.mu.Lock()
+			// Reset lastLineCount on resize as physical line wrapping may have changed,
+			// making relative cursor movement unreliable.
+			pm.lastLineCount = 0
+			pm.mu.Unlock()
+		}
+	}()
 }
 
 // SetEnabled activates the dynamic dashboard if the output is a terminal.
@@ -70,12 +89,13 @@ func (pm *ProgressManager) Remove(id string) {
 
 	if _, ok := pm.activeTasks[id]; ok {
 		delete(pm.activeTasks, id)
-		for i, tid := range pm.taskIDs {
-			if tid == id {
-				pm.taskIDs = append(pm.taskIDs[:i], pm.taskIDs[i+1:]...)
-				break
+		newIDs := make([]string, 0, len(pm.taskIDs)-1)
+		for _, tid := range pm.taskIDs {
+			if tid != id {
+				newIDs = append(newIDs, tid)
 			}
 		}
+		pm.taskIDs = newIDs
 		pm.draw()
 	}
 }
@@ -123,7 +143,10 @@ func (pm *ProgressManager) draw() {
 	width := pm.getTermWidth()
 	totalLines := 0
 	for _, id := range pm.taskIDs {
-		str := pm.activeTasks[id]
+		str, ok := pm.activeTasks[id]
+		if !ok {
+			continue
+		}
 		lines := strings.Split(strings.TrimSuffix(str, "\n"), "\n")
 		for _, line := range lines {
 			fmt.Print("\r")
