@@ -1222,6 +1222,7 @@ func main() {
 					Load:          c.Int("l"),
 					NoRapidUpload: c.Bool("norapid"),
 					Policy:        c.String("policy"),
+					IsLineByLine:  c.Bool("lbl"),
 				})
 				return nil
 			},
@@ -1246,6 +1247,10 @@ func main() {
 				cli.StringFlag{
 					Name:  "policy",
 					Usage: fmt.Sprintf("对同名文件的处理策略 (default: %s), %s, %s", baidupcs.SkipPolicy, baidupcs.OverWritePolicy, baidupcs.RsyncPolicy),
+				},
+				cli.BoolFlag{
+					Name:  "lbl",
+					Usage: "line-by-line progress update, 逐行打印进度更新",
 				},
 			},
 		},
