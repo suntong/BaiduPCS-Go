@@ -33,6 +33,7 @@ type (
 		ModifyMTime          bool
 		FullPath             bool
 		LinkPrefer           int
+		IsLineByLine         bool
 	}
 
 	// LocateDownloadOption 获取下载链接可选参数
@@ -153,6 +154,7 @@ func RunDownload(paths []string, options *DownloadOptions) {
 			IsExecutedPermission: options.IsExecutedPermission,
 			IsOverwrite:          options.IsOverwrite,
 			NoCheck:              options.NoCheck,
+			IsLineByLine:         options.IsLineByLine,
 			DlinkPrefer:          options.LinkPrefer,
 			DownloadMode:         options.DownloadMode,
 			ModifyMTime:          options.ModifyMTime,
@@ -173,11 +175,14 @@ func RunDownload(paths []string, options *DownloadOptions) {
 			unit.SavePath = GetActiveUser().GetSavePath(vPath)
 		}
 		info := executor.Append(&unit, options.MaxRetry)
-		fmt.Printf("[%s] 加入下载队列: %s\n", info.Id(), v.Path)
+		fmt.Printf("[%s] 加入下载队列: %s, 保存位置: %s\n", info.Id(), v.Path, unit.SavePath)
 	}
 
 	// 开始计时
 	statistic.StartTimer()
+
+	// 设置是否启用动态面板
+	pcsdownload.GetProgressManager().SetEnabled(!options.IsLineByLine)
 
 	// 开始执行
 	executor.Execute()

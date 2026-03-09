@@ -1102,6 +1102,7 @@ func main() {
 					LinkPrefer:           c.Int("dindex"),
 					ModifyMTime:          c.Bool("mtime"),
 					FullPath:             c.Bool("fullpath"),
+					IsLineByLine:         c.Bool("lbl"),
 				}
 
 				pcscommand.RunDownload(c.Args(), do)
@@ -1166,6 +1167,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "fullpath",
 					Usage: "以网盘完整路径保存到本地",
+				},
+				cli.BoolFlag{
+					Name:  "lbl",
+					Usage: "line-by-line, 逐行打印进度更新",
 				},
 			},
 		},
