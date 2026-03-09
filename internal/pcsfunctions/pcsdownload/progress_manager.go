@@ -3,13 +3,16 @@ package pcsdownload
 import (
 	"fmt"
 	"github.com/mattn/go-isatty"
+	"github.com/mattn/go-runewidth"
+	"golang.org/x/sys/unix"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 )
 
-// ProgressManager 管理下载进度显示, 实现动态面板效果
+// ProgressManager maintains a list of concurrent download tasks and renders their progress
+// at the bottom of the terminal without scrolling the command history.
 type ProgressManager struct {
 	mu            sync.Mutex
 	activeTasks   map[string]string
@@ -24,7 +27,7 @@ var (
 	pmOnce                sync.Once
 )
 
-// GetProgressManager 获取ProgressManager单例
+// GetProgressManager returns the singleton instance of ProgressManager.
 func GetProgressManager() *ProgressManager {
 	pmOnce.Do(func() {
 		globalProgressManager = &ProgressManager{
@@ -35,12 +38,12 @@ func GetProgressManager() *ProgressManager {
 	return globalProgressManager
 }
 
-// SetEnabled 设置是否启用动态面板
+// SetEnabled activates the dynamic dashboard if the output is a terminal.
 func (pm *ProgressManager) SetEnabled(enabled bool) {
 	pm.enabled = enabled && pm.isTerminal
 }
 
-// Update 更新任务进度字符串并重绘面板
+// Update records or updates the progress string for a specific task and triggers a redraw.
 func (pm *ProgressManager) Update(id string, status string) {
 	if !pm.enabled {
 		fmt.Print(status)
@@ -57,7 +60,7 @@ func (pm *ProgressManager) Update(id string, status string) {
 	pm.draw()
 }
 
-// Remove 从面板中移除任务并重绘
+// Remove cleans up a finished task's entry from the dashboard.
 func (pm *ProgressManager) Remove(id string) {
 	if !pm.enabled {
 		return
@@ -77,7 +80,7 @@ func (pm *ProgressManager) Remove(id string) {
 	}
 }
 
-// Printf 在动态面板上方打印信息
+// Printf displays log messages above the dynamic progress dashboard.
 func (pm *ProgressManager) Printf(format string, a ...interface{}) {
 	if !pm.enabled {
 		fmt.Printf(format, a...)
@@ -86,55 +89,53 @@ func (pm *ProgressManager) Printf(format string, a ...interface{}) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	// 向上移动并清除之前的面板行
+	// Clear the existing dashboard area before printing log messages.
 	if pm.lastLineCount > 0 {
-		fmt.Printf("\033[%dA", pm.lastLineCount)
-		for i := 0; i < pm.lastLineCount; i++ {
-			fmt.Print("\033[2K\n")
-		}
-		fmt.Printf("\033[%dA", pm.lastLineCount)
+		fmt.Printf("\033[%dA\033[J", pm.lastLineCount)
 	}
 
-	// 打印新消息
 	fmt.Printf(format, a...)
 
-	// 重置 lastLineCount，因为我们已经物理上清除了面板行并移动了光标
-	// draw() 会根据当前状态重新绘制并设置正确的 lastLineCount
+	// Reset tracking and redraw the dashboard at the new bottom position.
 	pm.lastLineCount = 0
 	pm.draw()
 }
 
-// draw 绘制面板的具体逻辑
+// getTermWidth returns the current width of the terminal.
+func (pm *ProgressManager) getTermWidth() int {
+	ws, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
+	if err != nil {
+		return 80 // Default fallback
+	}
+	return int(ws.Col)
+}
+
+// draw performs the actual rendering of the dynamic progress lines.
 func (pm *ProgressManager) draw() {
-	// 向上移动到面板起始位置
+	// Move cursor up to the dashboard start position.
 	if pm.lastLineCount > 0 {
 		fmt.Printf("\033[%dA", pm.lastLineCount)
 	}
 
+	// Use \033[J to clear everything from the current cursor position to the bottom.
+	fmt.Print("\033[J")
+
+	width := pm.getTermWidth()
 	totalLines := 0
 	for _, id := range pm.taskIDs {
 		str := pm.activeTasks[id]
-
-		// 处理可能的多行状态(如启用status输出时)
 		lines := strings.Split(strings.TrimSuffix(str, "\n"), "\n")
 		for _, line := range lines {
-			fmt.Print("\033[2K\r") // 清除当前行并回到行首
-			fmt.Print(line)
-			fmt.Print("\n")
+			fmt.Print("\r")
+			// Truncate line to fit terminal width to avoid wrapping.
+			if runewidth.StringWidth(line) > width {
+				line = runewidth.Truncate(line, width, "...")
+			}
+			fmt.Println(line)
 			totalLines++
 		}
 	}
 
-	// 如果当前行数少于上次, 清除多余的旧行
-	if totalLines < pm.lastLineCount {
-		diff := pm.lastLineCount - totalLines
-		for i := 0; i < diff; i++ {
-			fmt.Print("\033[2K") // 清除当前行
-			fmt.Print("\n")
-		}
-		// 回到当前面板末尾
-		fmt.Printf("\033[%dA", diff)
-	}
 	pm.lastLineCount = totalLines
-	os.Stdout.Sync() // 刷新输出
+	os.Stdout.Sync()
 }
